@@ -1,0 +1,70 @@
+---
+title: "NY Airbnb Analysis"
+author: "Dave Anderson"
+date: "August 27, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggthemr)
+library(gridExtra)
+library(tidyverse)
+```
+
+```{r}
+data <- readRDS("data.RDS")
+
+```
+#Overview
+
+#Data
+  The data consists of 48,895 airbnb listings in 2019 within New York City. Information includes a listing name, host name, neighborhood, and location coordinates. I find this information interesting as Airbnb does not disclose exact locations of listings until booking. We also have a price, minimum nights required for booking, number of reviews and days available out of the year. Unfortunetly, we do not have any sort of review ratings. 
+  To assist in mapping and location analysis, I created a dataset grouping listings by neighborhood and averaging their variables. This includes coordinates for mapping to create a crude latitude and longitude for neighborhood markers. I also engineered several dummy variables for key words found in the listing description for price analysis. 
+
+#EDA
+  Our investigation will be from both customer perspectives. If I am looking to rent part of or all of my home, how much should I expect to charge. If I need a place to stay, what should I be looking to spend? Both perspectives of focused on price. 
+  The prices range from $0/night to $10,000. In some curiousity-driven snooping, I could only find $20 for the minimum and $6,000 for the maximum in New York City. However, the selection is always limited to availability and minimum nights selected. The distribution of prices is extremely right-skewed, with very few listings being much more expensive than the majority. The biggest distinction between listings is whether someone is renting a single room or if he/she has the entire place to themself. The average price of an entire place is about $122 more than the average private room. Distributions of price for both are shown below, upper-bound to 500/night.  
+
+```{r}
+ggthemr('solarized')
+
+#Room Types
+grid.arrange(
+ggplot(entireplace)+geom_density(aes(price))+xlim(0,500)+labs(title = "Entire Apt/Home"),
+ggplot(privateroom)+geom_density(aes(price))+xlim(0,500)+labs(title = "Private Room")
+)
+
+
+privateroom <- data %>% filter(room_type == "Private room")
+entireplace <- data %>% filter(room_type == "Entire home/apt")
+
+
+room_type <- data %>% group_by(room_type) %>% summarise(n = n(), average_price = mean(price))
+
+```
+  
+```{r}
+#Boroughs
+boroughs <- data %>% group_by(neighbourhood_group) %>% summarise(
+  n = n(),
+  price = mean(price),
+  reviews = mean(numb)
+)
+
+ggplot(boroughs)+geom_bar(aes(neighbourhood_group,price), stat = 'identity')+ labs(title = "Average Price by Borough", x = "Borough", y = "Average Price")
+
+ggplot(data)+geom_bar(aes(neighbourhood_group,fill = room_type))+labs(title = "Number of Airbnbs by Borough", y = "Number of Listings", x = "Borough")
+
+```
+
+
+```{r}
+#Modeling
+lm1 <- lm(price ~ factor(neighbourhood_group)+factor(room_type)+minimum_nights+number_of_reviews + availability_365 + factor(cozy) + factor(private) + factor(spacious), data = data)
+
+lm1
+summary(lm1)
+```
+
